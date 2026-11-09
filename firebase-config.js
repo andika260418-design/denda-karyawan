@@ -1,5 +1,5 @@
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyD6Xx-D3CekmLhtpQHGNvhn0Osre47QfVk",
+  apiKey: "AIzaSyD6Xx-D3CekmlhtpQHGNvhn0Osre47QfVk",
   authDomain: "hitung-denda.firebaseapp.com",
   projectId: "hitung-denda",
   storageBucket: "hitung-denda.firebasestorage.app",
