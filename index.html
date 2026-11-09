@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Denda Karyawan</title>
+<meta name="theme-color" content="#f3f1e6">
+<meta name="description" content="Pencatat denda karyawan bulanan yang sederhana.">
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/plus-jakarta-sans-800.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="wrap nav">
+    <button id="nav-home" class="active" data-page="home">Beranda</button>
+    <button id="nav-add" data-page="add">Tambah Karyawan</button>
+  </div>
+</header>
+
+<main>
+  <!-- Halaman Beranda: daftar nama karyawan dan input denda bulanan -->
+  <section id="page-home" class="page">
+    <header class="page-header">
+      <div class="month-bar">
+        <label for="month">Bulan</label>
+        <input type="month" id="month">
+      </div>
+      <h1>Beranda</h1>
+    </header>
+
+    <div class="summary-card">
+      <span class="summary-label">Total denda</span>
+      <div class="summary-amount" id="total">Rp 0</div>
+      <div class="summary-divider"></div>
+      <div class="summary-foot">
+        <span>Karyawan</span>
+        <b id="emp-count">0</b>
+      </div>
+    </div>
+
+    <div class="card list-card">
+      <table>
+        <thead>
+          <tr>
+            <th>No</th>
+            <th>Nama Karyawan</th>
+            <th class="num">Sisa Denda (Rp)</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div id="empty-home" class="empty hidden">Belum ada karyawan. Tambahkan lewat menu Tambah Karyawan.</div>
+    </div>
+  </section>
+
+  <!-- Halaman Tambah Karyawan: menu khusus untuk menambah dan mengelola nama -->
+  <section id="page-add" class="page hidden">
+    <header class="page-header">
+      <h1>Tambah Karyawan</h1>
+    </header>
+
+    <div class="card">
+      <form id="addForm" class="row">
+        <input type="text" id="empName" placeholder="Nama karyawan" required maxlength="80">
+        <button type="submit">Tambah</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <strong>Daftar karyawan (<span id="count">0</span>)</strong>
+      <table>
+        <tbody id="manage-rows"></tbody>
+      </table>
+      <div id="empty-add" class="empty hidden">Belum ada karyawan.</div>
+    </div>
+  </section>
+</main>
+
+<button type="button" class="fab-report" id="exportReport" aria-label="Ekspor laporan bulanan PDF" title="Ekspor laporan bulanan (PDF)">
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h6.5L19 9v11a1.5 1.5 0 0 1-1.5 1.5H7A1.5 1.5 0 0 1 5.5 20V5A1.5 1.5 0 0 1 7 3.5Z"/><path d="M13.5 3.5V9H19"/><path d="M9 13h6M9 16.5h6"/></svg>
+</button>
+</div>
+
+<div class="dialog-wrap hidden" id="fineDialog">
+  <div class="dialog-backdrop" id="fineBackdrop"></div>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="fineDialogTitle">
+    <h3 id="fineDialogTitle">Tambah denda</h3>
+    <p class="dialog-sub" id="fineEmployee"></p>
+    <p class="dialog-hint" id="fineHint"></p>
+    <label class="dialog-label" for="fineMonth">Bulan</label>
+    <input type="month" id="fineMonth">
+    <label class="dialog-label" for="fineAmount">Nominal denda (Rp)</label>
+    <input type="number" id="fineAmount" min="0" step="1000" placeholder="0">
+    <div class="dialog-actions">
+      <button type="button" class="btn-soft" id="fineCancel">Batal</button>
+      <button type="button" class="btn-primary" id="fineSave">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-wrap hidden" id="paymentDialog">
+  <div class="dialog-backdrop" id="paymentBackdrop"></div>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="paymentDialogTitle">
+    <h3 id="paymentDialogTitle">Pembayaran denda</h3>
+    <p class="dialog-sub" id="paymentEmployee"></p>
+    <p class="dialog-hint" id="paymentHint"></p>
+    <label class="dialog-label" for="paymentMonth">Bulan</label>
+    <input type="month" id="paymentMonth">
+    <label class="dialog-label" for="paymentAmount">Nominal pembayaran (Rp)</label>
+    <input type="number" id="paymentAmount" min="0" step="1000" placeholder="0">
+    <div class="dialog-actions">
+      <button type="button" class="btn-soft" id="paymentCancel">Batal</button>
+      <button type="button" class="btn-primary" id="paymentSave">Bayar</button>
+    </div>
+  </div>
+</div>
+
+<div class="dialog-wrap hidden" id="detailDialog">
+  <div class="dialog-backdrop" id="detailBackdrop"></div>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="detailDialogTitle">
+    <h3 id="detailDialogTitle">Detail denda</h3>
+    <p class="dialog-sub" id="detailEmployee"></p>
+    <label class="dialog-label" for="detailMonth">Bulan</label>
+    <input type="month" id="detailMonth">
+    <div class="detail-list">
+      <div class="detail-item">
+        <span>Jumlah denda</span>
+        <b id="detailFine">Rp 0</b>
+      </div>
+      <div class="detail-item">
+        <span>Telah dibayar</span>
+        <b id="detailPaid">Rp 0</b>
+      </div>
+      <div class="detail-item">
+        <span>Sisa denda</span>
+        <b id="detailLeft">Rp 0</b>
+      </div>
+    </div>
+    <div class="dialog-actions">
+      <button type="button" class="btn-soft" id="detailClose">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const STORAGE_KEY = "denda-karyawan-v1";
+  const rupiah = n => "Rp " + Number(n || 0).toLocaleString("id-ID");
+
+  let state = load();
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const data = JSON.parse(raw);
+        if (!Array.isArray(data.employees)) data.employees = [];
+        if (!data.fines || typeof data.fines !== "object") data.fines = {};
+        if (!data.payments || typeof data.payments !== "object") data.payments = {};
+        return data;
+      }
+    } catch (e) {}
+    return { employees: [], fines: {}, payments: {} };
+  }
+
+  function save() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function monthFines() {
+    const m = document.getElementById("month").value;
+    if (!state.fines[m]) state.fines[m] = {};
+    return state.fines[m];
+  }
+
+  // ---------- Navigasi ----------
+  function showPage(name) {
+    document.getElementById("page-home").classList.toggle("hidden", name !== "home");
+    document.getElementById("page-add").classList.toggle("hidden", name !== "add");
+    document.getElementById("nav-home").classList.toggle("active", name === "home");
+    document.getElementById("nav-add").classList.toggle("active", name === "add");
+    if (name === "home") renderHome();
+    if (name === "add") renderManage();
+  }
+  document.getElementById("nav-home").addEventListener("click", () => showPage("home"));
+  document.getElementById("nav-add").addEventListener("click", () => showPage("add"));
+
+  function createFineButton(emp) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "icon-action";
+    btn.title = "Tambah denda";
+    btn.setAttribute("aria-label", `Tambah denda ${emp.name}`);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15.2 5.2 3.6 3.6M4.5 19.5l.9-4.2L16.3 4.4a1.8 1.8 0 0 1 2.5 0l.8.8a1.8 1.8 0 0 1 0 2.5L8.7 18.6l-4.2.9Z"/></svg>';
+    btn.addEventListener("click", () => openFineDialog(emp));
+    return btn;
+  }
+
+  function createPaymentButton(emp) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "icon-action pay-action";
+    btn.title = "Pembayaran denda";
+    btn.setAttribute("aria-label", `Pembayaran denda ${emp.name}`);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5V7a1.5 1.5 0 0 1 1.5-1.5H17"/><path d="M4 8.5h14.5A1.5 1.5 0 0 1 20 10v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18V8.5Z"/><path d="M16 13.5h.01"/></svg>';
+    btn.addEventListener("click", () => openPaymentDialog(emp));
+    return btn;
+  }
+
+  function createDetailButton(emp) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "icon-action detail-action";
+    btn.title = "Detail denda";
+    btn.setAttribute("aria-label", `Detail denda ${emp.name}`);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+    btn.addEventListener("click", () => openDetailDialog(emp));
+    return btn;
+  }
+
+  // ---------- Beranda ----------
+  function renderHome() {
+    const tbody = document.getElementById("rows");
+    const fines = monthFines();
+    tbody.innerHTML = "";
+
+    state.employees.forEach((emp, i) => {
+      const tr = document.createElement("tr");
+
+      const tdNo = document.createElement("td");
+      tdNo.textContent = i + 1;
+
+      const tdName = document.createElement("td");
+      tdName.textContent = emp.name;
+
+      const tdFine = document.createElement("td");
+      tdFine.className = "num";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.step = "1000";
+      input.className = "fine";
+      input.placeholder = "0";
+      input.value = fines[emp.id] ?? "";
+      input.addEventListener("input", () => {
+        const v = parseInt(input.value, 10);
+        if (isNaN(v) || v <= 0) delete fines[emp.id];
+        else fines[emp.id] = v;
+        save();
+        updateTotal();
+      });
+
+      const fineCell = document.createElement("div");
+      fineCell.className = "fine-cell";
+      fineCell.append(input, createFineButton(emp), createPaymentButton(emp), createDetailButton(emp));
+      tdFine.appendChild(fineCell);
+
+      tr.append(tdNo, tdName, tdFine);
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("empty-home").classList.toggle("hidden", state.employees.length > 0);
+    updateTotal();
+  }
+
+  function updateTotal() {
+    const fines = monthFines();
+    const total = state.employees.reduce((sum, e) => sum + (fines[e.id] || 0), 0);
+    document.getElementById("total").textContent = rupiah(total);
+    document.getElementById("emp-count").textContent = state.employees.length;
+  }
+
+  // ---------- Tambah Karyawan ----------
+  function renderManage() {
+    const tbody = document.getElementById("manage-rows");
+    tbody.innerHTML = "";
+
+    state.employees.forEach((emp, i) => {
+      const tr = document.createElement("tr");
+
+      const tdNo = document.createElement("td");
+      tdNo.textContent = i + 1;
+
+      const tdName = document.createElement("td");
+      tdName.textContent = emp.name;
+
+      const tdActions = document.createElement("td");
+      tdActions.className = "num";
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
+
+      const fineBtn = createFineButton(emp);
+      const payBtn = createPaymentButton(emp);
+      const detailBtn = createDetailButton(emp);
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "del";
+      btn.textContent = "Hapus";
+      btn.addEventListener("click", () => removeEmployee(emp.id));
+
+      actions.append(fineBtn, payBtn, detailBtn, btn);
+      tdActions.appendChild(actions);
+
+      tr.append(tdNo, tdName, tdActions);
+      tbody.appendChild(tr);
+    });
+
+    document.getElementById("count").textContent = state.employees.length;
+    document.getElementById("empty-add").classList.toggle("hidden", state.employees.length > 0);
+  }
+
+  function removeEmployee(id) {
+    const emp = state.employees.find(e => e.id === id);
+    if (!emp || !confirm(`Hapus ${emp.name} dari daftar? Data denda di semua bulan ikut terhapus.`)) return;
+    state.employees = state.employees.filter(e => e.id !== id);
+    Object.values(state.fines).forEach(m => delete m[id]);
+    Object.values(state.payments).forEach(m => delete m[id]);
+    save();
+    renderManage();
+  }
+
+  // ---------- Dialog tambah denda ----------
+  let fineTarget = null;
+  const fineDialog = document.getElementById("fineDialog");
+  const fineMonth = document.getElementById("fineMonth");
+  const fineAmount = document.getElementById("fineAmount");
+  const fineHint = document.getElementById("fineHint");
+
+  function existingFine(month, id) {
+    return (state.fines[month] && state.fines[month][id]) || 0;
+  }
+
+  function existingPaid(month, id) {
+    return (state.payments[month] && state.payments[month][id]) || 0;
+  }
+
+  function refreshFineHint() {
+    if (!fineTarget) return;
+    const current = existingFine(fineMonth.value, fineTarget.id);
+    fineHint.textContent = current ? `Sisa denda bulan ini: ${rupiah(current)} (nominal baru ditambahkan)` : "";
+  }
+
+  function openFineDialog(emp) {
+    fineTarget = emp;
+    document.getElementById("fineEmployee").textContent = emp.name;
+    fineMonth.value = document.getElementById("month").value;
+    fineAmount.value = "";
+    refreshFineHint();
+    fineDialog.classList.remove("hidden");
+    fineAmount.focus();
+  }
+
+  function closeFineDialog() {
+    fineDialog.classList.add("hidden");
+    fineTarget = null;
+  }
+
+  document.getElementById("fineCancel").addEventListener("click", closeFineDialog);
+  document.getElementById("fineBackdrop").addEventListener("click", closeFineDialog);
+  fineMonth.addEventListener("change", refreshFineHint);
+
+  document.getElementById("fineSave").addEventListener("click", () => {
+    if (!fineTarget) return;
+    const month = fineMonth.value;
+    const amount = parseInt(fineAmount.value, 10);
+    if (!month || isNaN(amount) || amount <= 0) return;
+    if (!state.fines[month]) state.fines[month] = {};
+    state.fines[month][fineTarget.id] = existingFine(month, fineTarget.id) + amount;
+    save();
+    if (!document.getElementById("page-home").classList.contains("hidden")) renderHome();
+    closeFineDialog();
+  });
+
+  fineAmount.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("fineSave").click();
+    }
+  });
+
+  // ---------- Dialog pembayaran denda ----------
+  let paymentTarget = null;
+  const paymentDialog = document.getElementById("paymentDialog");
+  const paymentMonth = document.getElementById("paymentMonth");
+  const paymentAmount = document.getElementById("paymentAmount");
+  const paymentHint = document.getElementById("paymentHint");
+
+  function refreshPaymentHint() {
+    if (!paymentTarget) return;
+    const current = existingFine(paymentMonth.value, paymentTarget.id);
+    const amount = parseInt(paymentAmount.value, 10);
+    if (current <= 0) {
+      paymentHint.textContent = "Belum ada denda pada bulan ini.";
+    } else if (!isNaN(amount) && amount > 0) {
+      paymentHint.textContent = `Sisa denda: ${rupiah(current)} · Setelah dibayar: ${rupiah(Math.max(0, current - amount))}`;
+    } else {
+      paymentHint.textContent = `Sisa denda bulan ini: ${rupiah(current)}`;
+    }
+  }
+
+  function openPaymentDialog(emp) {
+    paymentTarget = emp;
+    document.getElementById("paymentEmployee").textContent = emp.name;
+    paymentMonth.value = document.getElementById("month").value;
+    paymentAmount.value = "";
+    refreshPaymentHint();
+    paymentDialog.classList.remove("hidden");
+    paymentAmount.focus();
+  }
+
+  function closePaymentDialog() {
+    paymentDialog.classList.add("hidden");
+    paymentTarget = null;
+  }
+
+  document.getElementById("paymentCancel").addEventListener("click", closePaymentDialog);
+  document.getElementById("paymentBackdrop").addEventListener("click", closePaymentDialog);
+  paymentMonth.addEventListener("change", refreshPaymentHint);
+  paymentAmount.addEventListener("input", refreshPaymentHint);
+
+  document.getElementById("paymentSave").addEventListener("click", () => {
+    if (!paymentTarget) return;
+    const month = paymentMonth.value;
+    const amount = parseInt(paymentAmount.value, 10);
+    const current = existingFine(month, paymentTarget.id);
+    if (!month || isNaN(amount) || amount <= 0 || current <= 0) return;
+    const paidAmount = Math.min(amount, current);
+    const remaining = current - paidAmount;
+    if (!state.payments[month]) state.payments[month] = {};
+    state.payments[month][paymentTarget.id] = existingPaid(month, paymentTarget.id) + paidAmount;
+    if (remaining > 0) state.fines[month][paymentTarget.id] = remaining;
+    else delete state.fines[month][paymentTarget.id];
+    save();
+    if (!document.getElementById("page-home").classList.contains("hidden")) renderHome();
+    closePaymentDialog();
+  });
+
+  paymentAmount.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("paymentSave").click();
+    }
+  });
+
+  // ---------- Dialog detail denda ----------
+  let detailTarget = null;
+  const detailDialog = document.getElementById("detailDialog");
+  const detailMonth = document.getElementById("detailMonth");
+
+  function refreshDetail() {
+    if (!detailTarget) return;
+    const month = detailMonth.value;
+    const left = existingFine(month, detailTarget.id);
+    const paid = existingPaid(month, detailTarget.id);
+    document.getElementById("detailFine").textContent = rupiah(left + paid);
+    document.getElementById("detailPaid").textContent = rupiah(paid);
+    document.getElementById("detailLeft").textContent = rupiah(left);
+  }
+
+  function openDetailDialog(emp) {
+    detailTarget = emp;
+    document.getElementById("detailEmployee").textContent = emp.name;
+    detailMonth.value = document.getElementById("month").value;
+    refreshDetail();
+    detailDialog.classList.remove("hidden");
+  }
+
+  function closeDetailDialog() {
+    detailDialog.classList.add("hidden");
+    detailTarget = null;
+  }
+
+  document.getElementById("detailClose").addEventListener("click", closeDetailDialog);
+  document.getElementById("detailBackdrop").addEventListener("click", closeDetailDialog);
+  detailMonth.addEventListener("change", refreshDetail);
+
+  // ---------- Ekspor laporan bulanan (PDF) ----------
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[ch]));
+  }
+
+  function monthLabelFromValue(month) {
+    const date = new Date(month + "-01T00:00:00");
+    return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  }
+
+  function buildReportHtml(month) {
+    const monthLabel = monthLabelFromValue(month);
+    const created = new Date().toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
+    });
+    const fontBase = new URL("assets/fonts/", window.location.href).href;
+    const rows = [];
+    let sumFine = 0;
+    let sumPaid = 0;
+    let sumLeft = 0;
+
+    state.employees.forEach(emp => {
+      const left = existingFine(month, emp.id);
+      const paid = existingPaid(month, emp.id);
+      const total = left + paid;
+      sumFine += total;
+      sumPaid += paid;
+      sumLeft += left;
+      rows.push(
+        '<tr><td>' + escapeHtml(emp.name) + '</td>' +
+        '<td class="num">' + rupiah(total) + '</td>' +
+        '<td class="num">' + rupiah(paid) + '</td>' +
+        '<td class="num">' + rupiah(left) + '</td></tr>'
+      );
+    });
+
+    if (!rows.length) {
+      rows.push('<tr><td colspan="4" class="empty-row">Belum ada karyawan pada laporan ini.</td></tr>');
+    }
+
+    return '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">' +
+      '<title>Laporan Denda ' + monthLabel + '</title>' +
+      '<style>' +
+      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}' +
+      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-600.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}' +
+      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}' +
+      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-800.woff2") format("woff2");font-weight:800;font-style:normal;font-display:swap}' +
+      '*{box-sizing:border-box}' +
+      'body{margin:0;padding:30px 34px;background:#fff;color:#283126;font-family:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif;font-size:12.5px;line-height:1.45;-webkit-font-smoothing:antialiased}' +
+      '.top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:16px;border-bottom:1px solid #ddd9c6}' +
+      '.brand{display:inline-flex;align-items:center;gap:8px;color:#43553d;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}' +
+      '.brand-dot{width:9px;height:9px;border-radius:50%;background:#43553d;display:inline-block}' +
+      'h1{margin:8px 0 3px;font-size:26px;font-weight:800;letter-spacing:-.9px;line-height:1.15}' +
+      '.meta{color:#797b66;font-size:12px;font-weight:500}' +
+      '.date-box{text-align:right;color:#797b66;font-size:11px}' +
+      '.date-box b{display:block;margin-top:2px;color:#283126;font-size:12.5px;font-weight:700}' +
+      '.summary{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:10px;margin:18px 0 22px}' +
+      '.tile{padding:13px 15px;border:1px solid #e0ddc9;border-radius:12px;background:#f3f1e6}' +
+      '.tile span{display:block;margin-bottom:4px;color:#57604d;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}' +
+      '.tile b{font-size:17px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums}' +
+      '.tile.primary{border-color:transparent;background:linear-gradient(135deg,#52654a 0%,#43553d 55%,#36462f 100%);color:#f3f1e6}' +
+      '.tile.primary span{color:rgba(243,241,230,.8)}' +
+      '.tile.primary b{font-size:19px}' +
+      '.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}' +
+      '.section-head h2{margin:0;font-size:13px;font-weight:800;letter-spacing:-.1px}' +
+      '.section-head span{color:#797b66;font-size:11px}' +
+      'table{width:100%;border-collapse:separate;border-spacing:0}' +
+      'thead th{padding:9px 10px;background:#43553d;color:#f3f1e6;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}' +
+      'thead th:first-child{border-radius:8px 0 0 8px}' +
+      'thead th:last-child{border-radius:0 8px 8px 0}' +
+      'th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}' +
+      'tbody td{padding:9px 10px;border-bottom:1px solid #eae7d7}' +
+      'tbody tr:nth-child(even) td{background:#faf8ef}' +
+      'tbody tr:last-child td{border-bottom:0}' +
+      '.empty-row{padding:22px 10px;color:#797b66;text-align:center}' +
+      'tfoot td{padding:11px 10px;border-top:1.5px solid #43553d;font-weight:800}' +
+      'tfoot td.num{color:#43553d}' +
+      '.footer{display:flex;justify-content:space-between;gap:20px;margin-top:22px;padding-top:10px;border-top:1px solid #eae7d7;color:#a3a48e;font-size:9.5px}' +
+      '.pdf-toolbar{position:fixed;right:18px;bottom:18px}' +
+      '.pdf-toolbar button{border:0;border-radius:999px;padding:12px 20px;background:#43553d;color:#f3f1e6;font:700 13px "Plus Jakarta Sans","Segoe UI",sans-serif;cursor:pointer;box-shadow:0 12px 26px -10px rgba(38,49,34,.6)}' +
+      '@page{size:A4 portrait;margin:12mm}' +
+      '@media print{body{padding:0}.pdf-toolbar{display:none}}' +
+      '</style></head><body>' +
+      '<header class="top"><div>' +
+      '<div class="brand"><span class="brand-dot"></span>Denda Karyawan</div>' +
+      '<h1>Laporan Bulanan</h1>' +
+      '<div class="meta">' + monthLabel + ' · ' + state.employees.length + ' karyawan</div>' +
+      '</div><div class="date-box">Dibuat<b>' + created + '</b></div></header>' +
+      '<section class="summary">' +
+      '<div class="tile"><span>Jumlah Denda</span><b>' + rupiah(sumFine) + '</b></div>' +
+      '<div class="tile"><span>Telah Dibayar</span><b>' + rupiah(sumPaid) + '</b></div>' +
+      '<div class="tile primary"><span>Sisa Denda</span><b>' + rupiah(sumLeft) + '</b></div>' +
+      '</section>' +
+      '<div class="section-head"><h2>Rincian denda</h2><span>Satuan Rupiah</span></div>' +
+      '<table><thead><tr><th>Nama Karyawan</th><th class="num">Jumlah Denda</th><th class="num">Telah Dibayar</th><th class="num">Sisa Denda</th></tr></thead>' +
+      '<tbody>' + rows.join("") + '</tbody>' +
+      '<tfoot><tr><td>Total</td><td class="num">' + rupiah(sumFine) + '</td><td class="num">' + rupiah(sumPaid) + '</td><td class="num">' + rupiah(sumLeft) + '</td></tr></tfoot>' +
+      '</table>' +
+      '<footer class="footer"><span>Aplikasi Denda Karyawan</span><span>' + monthLabel + '</span></footer>' +
+      '<div class="pdf-toolbar"><button type="button" onclick="window.print()">Simpan PDF</button></div>' +
+      '</body></html>';
+  }
+
+  function exportMonthlyReport() {
+    const month = document.getElementById("month").value;
+    if (!month) return;
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) {
+      alert("Izinkan pop-up di browser untuk membuat laporan PDF.");
+      return;
+    }
+    reportWindow.document.open();
+    reportWindow.document.write(buildReportHtml(month));
+    reportWindow.document.close();
+
+    const printReport = () => {
+      reportWindow.focus();
+      reportWindow.print();
+    };
+    const fonts = reportWindow.document.fonts;
+    if (fonts && fonts.ready) {
+      fonts.ready.then(() => setTimeout(printReport, 150)).catch(() => setTimeout(printReport, 300));
+    } else {
+      setTimeout(printReport, 500);
+    }
+  }
+
+  document.getElementById("exportReport").addEventListener("click", exportMonthlyReport);
+
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (!fineDialog.classList.contains("hidden")) closeFineDialog();
+    if (!paymentDialog.classList.contains("hidden")) closePaymentDialog();
+    if (!detailDialog.classList.contains("hidden")) closeDetailDialog();
+  });
+
+  document.getElementById("addForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("empName");
+    const name = input.value.trim();
+    if (!name) return;
+    state.employees.push({ id: "e" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name });
+    save();
+    input.value = "";
+    input.focus();
+    renderManage();
+  });
+
+  // ---------- Inisialisasi ----------
+  const monthInput = document.getElementById("month");
+  const now = new Date();
+  monthInput.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  monthInput.addEventListener("change", renderHome);
+
+  showPage("home");
+</script>
+</body>
+</html>
