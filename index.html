@@ -20,7 +20,7 @@
 <header>
   <div class="wrap nav">
     <button id="nav-home" class="active" data-page="home">Beranda</button>
-    <button id="nav-add" data-page="add">Tambah Karyawan</button>
+    <button id="nav-add" data-page="add">Instansi</button>
     <button id="accountBtn" class="nav-account" type="button" aria-label="Akun Google" title="Akun Google">
       <span id="accountIcon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.4"></circle><path d="M5.5 19.5c.8-3.1 3.4-5 6.5-5s5.7 1.9 6.5 5"></path></svg></span>
       <span id="accountDot" class="account-dot hidden"></span>
@@ -60,17 +60,27 @@
         </thead>
         <tbody id="rows"></tbody>
       </table>
-      <div id="empty-home" class="empty hidden">Belum ada karyawan. Tambahkan lewat menu Tambah Karyawan.</div>
+      <div id="empty-home" class="empty hidden">Belum ada karyawan. Tambahkan lewat menu Instansi.</div>
     </div>
   </section>
 
-  <!-- Halaman Tambah Karyawan: menu khusus untuk menambah dan mengelola nama -->
+  <!-- Halaman Instansi: nama instansi, tambah, dan kelola karyawan -->
   <section id="page-add" class="page hidden">
     <header class="page-header">
-      <h1>Tambah Karyawan</h1>
+      <h1>Instansi</h1>
     </header>
 
     <div class="card">
+      <strong>Nama instansi</strong>
+      <form id="instForm" class="row">
+        <input type="text" id="instName" placeholder="Contoh: SDN 1 Sukamaju" maxlength="80">
+        <button type="submit">Simpan</button>
+      </form>
+      <p class="card-hint" id="instHint">Nama ini akan tampil di laporan PDF.</p>
+    </div>
+
+    <div class="card">
+      <strong>Tambah karyawan</strong>
       <form id="addForm" class="row">
         <input type="text" id="empName" placeholder="Nama karyawan" required maxlength="80">
         <button type="submit">Tambah</button>
@@ -242,10 +252,11 @@
         if (!Array.isArray(data.employees)) data.employees = [];
         if (!data.fines || typeof data.fines !== "object") data.fines = {};
         if (!data.payments || typeof data.payments !== "object") data.payments = {};
+        if (typeof data.institution !== "string") data.institution = "";
         return data;
       }
     } catch (e) {}
-    return { employees: [], fines: {}, payments: {} };
+    return { employees: [], fines: {}, payments: {}, institution: "" };
   }
 
   function save() {
@@ -411,6 +422,9 @@
 
     document.getElementById("count").textContent = state.employees.length;
     document.getElementById("empty-add").classList.toggle("hidden", state.employees.length > 0);
+
+    const instInput = document.getElementById("instName");
+    if (document.activeElement !== instInput) instInput.value = state.institution || "";
   }
 
   function removeEmployee(id) {
@@ -763,7 +777,7 @@
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7);
     ink(color.primary);
-    doc.text("DENDA KARYAWAN", margin + 4.8, y + 2.4, { charSpace: 0.5 });
+    doc.text(fitText((state.institution || "").trim() || "DENDA KARYAWAN", contentW - 70, 7), margin + 4.8, y + 2.4, { charSpace: 0.5 });
     doc.setFontSize(20);
     ink(color.ink);
     doc.text("Laporan Bulanan", margin, y + 10.8);
@@ -1168,7 +1182,8 @@
       : [];
     const fines = source.fines && typeof source.fines === "object" ? source.fines : {};
     const payments = source.payments && typeof source.payments === "object" ? source.payments : {};
-    return { employees, fines, payments };
+    const institution = typeof source.institution === "string" ? source.institution : "";
+    return { employees, fines, payments, institution };
   }
 
   function stableStringify(value) {
@@ -1212,6 +1227,7 @@
       employees: JSON.parse(JSON.stringify(state.employees)),
       fines: JSON.parse(JSON.stringify(state.fines)),
       payments: JSON.parse(JSON.stringify(state.payments)),
+      institution: state.institution || "",
       clientUpdatedAt: Date.now(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -1294,6 +1310,21 @@
     if (!sortDialog.classList.contains("hidden")) closeSortDialog();
     if (!accountDialog.classList.contains("hidden")) closeAccountDialog();
     if (!reportDialog.classList.contains("hidden")) closeReportPreview();
+  });
+
+  let instHintTimer = null;
+  document.getElementById("instForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const input = document.getElementById("instName");
+    const hint = document.getElementById("instHint");
+    state.institution = input.value.trim();
+    input.value = state.institution;
+    save();
+    hint.textContent = state.institution ? "Nama instansi tersimpan." : "Nama instansi dikosongkan.";
+    clearTimeout(instHintTimer);
+    instHintTimer = setTimeout(() => {
+      hint.textContent = "Nama ini akan tampil di laporan PDF.";
+    }, 2500);
   });
 
   document.getElementById("addForm").addEventListener("submit", e => {

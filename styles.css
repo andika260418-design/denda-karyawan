@@ -353,6 +353,14 @@ input[type="month"] {
   gap: 10px;
 }
 
+.card-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 input[type="text"] {
   flex: 1;
   min-width: 0;
@@ -379,7 +387,8 @@ input[type="month"]:focus {
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
-#addForm button {
+#addForm button,
+#instForm button {
   height: 50px;
   padding: 0 22px;
   border-radius: 14px;
@@ -391,11 +400,13 @@ input[type="month"]:focus {
   transition: background 0.18s ease, transform 0.14s ease, filter 0.18s ease;
 }
 
-#addForm button:hover {
+#addForm button:hover,
+#instForm button:hover {
   background: var(--primary-strong);
 }
 
-#addForm button:active {
+#addForm button:active,
+#instForm button:active {
   transform: scale(0.985);
   filter: brightness(0.97);
 }
@@ -964,7 +975,8 @@ button.icon-action svg {
     border-radius: 9px;
     font-size: 12px;
   }
-  #addForm button {
+  #addForm button,
+  #instForm button {
     padding: 0 18px;
   }
   .dialog {
