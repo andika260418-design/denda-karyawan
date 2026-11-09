@@ -54,7 +54,7 @@
         <thead>
           <tr>
             <th>No</th>
-            <th>Nama Karyawan</th>
+            <th>Nama</th>
             <th class="num">Sisa Denda (Rp)</th>
           </tr>
         </thead>
@@ -76,7 +76,6 @@
         <input type="text" id="instName" placeholder="Contoh: SDN 1 Sukamaju" maxlength="80">
         <button type="submit">Simpan</button>
       </form>
-      <p class="card-hint" id="instHint">Nama ini akan tampil di laporan PDF.</p>
     </div>
 
     <div class="card">
@@ -851,7 +850,7 @@
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.8);
       ink(color.cream);
-      doc.text("NAMA KARYAWAN", margin + 3, atY + 5.1, { charSpace: 0.25 });
+      doc.text("NAMA", margin + 3, atY + 5.1, { charSpace: 0.25 });
       doc.text("JUMLAH DENDA", xFine, atY + 5.1, { align: "right", charSpace: 0.1 });
       doc.text("TELAH DIBAYAR", xPaid, atY + 5.1, { align: "right", charSpace: 0.1 });
       doc.text("SISA DENDA", xLeft, atY + 5.1, { align: "right", charSpace: 0.1 });
@@ -923,7 +922,6 @@
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
       ink(color.muted);
-      doc.text("Aplikasi Denda Karyawan", margin, footY);
       doc.text(monthLabel, pageW - margin, footY, { align: "right" });
       if (pageCount > 1) {
         doc.text("Halaman " + p + " dari " + pageCount, pageW / 2, footY, { align: "center" });
@@ -1312,19 +1310,12 @@
     if (!reportDialog.classList.contains("hidden")) closeReportPreview();
   });
 
-  let instHintTimer = null;
   document.getElementById("instForm").addEventListener("submit", e => {
     e.preventDefault();
     const input = document.getElementById("instName");
-    const hint = document.getElementById("instHint");
     state.institution = input.value.trim();
     input.value = state.institution;
     save();
-    hint.textContent = state.institution ? "Nama instansi tersimpan." : "Nama instansi dikosongkan.";
-    clearTimeout(instHintTimer);
-    instHintTimer = setTimeout(() => {
-      hint.textContent = "Nama ini akan tampil di laporan PDF.";
-    }, 2500);
   });
 
   document.getElementById("addForm").addEventListener("submit", e => {
