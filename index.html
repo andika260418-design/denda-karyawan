@@ -158,6 +158,20 @@
   </div>
 </div>
 
+<div class="dialog-wrap hidden" id="sortDialog">
+  <div class="dialog-backdrop" id="sortBackdrop"></div>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="sortDialogTitle">
+    <h3 id="sortDialogTitle">Atur urutan</h3>
+    <p class="dialog-sub" id="sortEmployee"></p>
+    <p class="dialog-hint" id="sortHint"></p>
+    <div class="dialog-actions">
+      <button type="button" class="btn-soft" id="sortUp">Naikkan</button>
+      <button type="button" class="btn-soft" id="sortDown">Turunkan</button>
+      <button type="button" class="btn-primary wide" id="sortDone">Selesai</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const STORAGE_KEY = "denda-karyawan-v1";
   const rupiah = n => "Rp " + Number(n || 0).toLocaleString("id-ID");
@@ -257,7 +271,9 @@
       tdNo.textContent = i + 1;
 
       const tdName = document.createElement("td");
+      tdName.className = "name-cell";
       tdName.textContent = emp.name;
+      tdName.title = "Tahan untuk atur urutan";
 
       const tdFine = document.createElement("td");
       tdFine.className = "num";
@@ -282,6 +298,7 @@
       tdFine.appendChild(fineCell);
 
       tr.append(tdNo, tdName, tdFine);
+      addLongPress(tr, () => openSortDialog(emp));
       tbody.appendChild(tr);
     });
 
@@ -308,7 +325,9 @@
       tdNo.textContent = i + 1;
 
       const tdName = document.createElement("td");
+      tdName.className = "name-cell";
       tdName.textContent = emp.name;
+      tdName.title = "Tahan untuk atur urutan";
 
       const tdActions = document.createElement("td");
       tdActions.className = "num";
@@ -329,6 +348,7 @@
       tdActions.appendChild(actions);
 
       tr.append(tdNo, tdName, tdActions);
+      addLongPress(tr, () => openSortDialog(emp));
       tbody.appendChild(tr);
     });
 
@@ -544,6 +564,88 @@
     }
   });
 
+  // ---------- Atur urutan karyawan ----------
+  let sortTargetId = null;
+  const sortDialog = document.getElementById("sortDialog");
+
+  function addLongPress(el, callback) {
+    let timer = null;
+    let startX = 0;
+    let startY = 0;
+    const cancel = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    };
+    el.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      if (e.target.closest("button, input, select, textarea, a")) return;
+      startX = e.clientX;
+      startY = e.clientY;
+      cancel();
+      timer = setTimeout(() => {
+        timer = null;
+        callback();
+      }, 550);
+    });
+    el.addEventListener("pointermove", e => {
+      if (!timer) return;
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
+    });
+    el.addEventListener("pointerup", cancel);
+    el.addEventListener("pointercancel", cancel);
+    el.addEventListener("pointerleave", cancel);
+    el.addEventListener("contextmenu", e => {
+      if (e.target.closest("button, input, select, textarea, a")) return;
+      e.preventDefault();
+    });
+  }
+
+  function refreshSortDialog() {
+    const index = state.employees.findIndex(e => e.id === sortTargetId);
+    if (index < 0) {
+      closeSortDialog();
+      return;
+    }
+    document.getElementById("sortEmployee").textContent = state.employees[index].name;
+    document.getElementById("sortHint").textContent = `Posisi ${index + 1} dari ${state.employees.length}`;
+    document.getElementById("sortUp").disabled = index === 0;
+    document.getElementById("sortDown").disabled = index === state.employees.length - 1;
+  }
+
+  function openSortDialog(emp) {
+    sortTargetId = emp.id;
+    refreshSortDialog();
+    sortDialog.classList.remove("hidden");
+  }
+
+  function closeSortDialog() {
+    sortDialog.classList.add("hidden");
+    sortTargetId = null;
+  }
+
+  function moveEmployee(id, delta) {
+    const index = state.employees.findIndex(e => e.id === id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= state.employees.length) return;
+    const [emp] = state.employees.splice(index, 1);
+    state.employees.splice(target, 0, emp);
+    save();
+    renderHome();
+    renderManage();
+    refreshSortDialog();
+  }
+
+  document.getElementById("sortUp").addEventListener("click", () => {
+    if (sortTargetId) moveEmployee(sortTargetId, -1);
+  });
+  document.getElementById("sortDown").addEventListener("click", () => {
+    if (sortTargetId) moveEmployee(sortTargetId, 1);
+  });
+  document.getElementById("sortDone").addEventListener("click", closeSortDialog);
+  document.getElementById("sortBackdrop").addEventListener("click", closeSortDialog);
+
   // ---------- Ekspor laporan bulanan (PDF) ----------
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, ch => ({
@@ -687,6 +789,7 @@
     if (!paymentDialog.classList.contains("hidden")) closePaymentDialog();
     if (!detailDialog.classList.contains("hidden")) closeDetailDialog();
     if (!renameDialog.classList.contains("hidden")) closeRenameDialog();
+    if (!sortDialog.classList.contains("hidden")) closeSortDialog();
   });
 
   document.getElementById("addForm").addEventListener("submit", e => {

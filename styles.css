@@ -667,8 +667,22 @@ button.icon-action svg {
   margin-top: 20px;
 }
 
-.dialog-actions button:only-child {
+.dialog-actions button:only-child,
+.dialog-actions button.wide {
   grid-column: 1 / -1;
+}
+
+.dialog-actions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+  filter: none;
+}
+
+.name-cell {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .btn-soft,
