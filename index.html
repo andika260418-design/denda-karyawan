@@ -214,6 +214,19 @@
   </div>
 </div>
 
+<div class="dialog-wrap hidden" id="reportDialog">
+  <div class="dialog-backdrop" id="reportBackdrop"></div>
+  <div class="dialog report-dialog" role="dialog" aria-modal="true" aria-labelledby="reportDialogTitle">
+    <h3 id="reportDialogTitle">Pratinjau laporan</h3>
+    <p class="dialog-sub" id="reportSub"></p>
+    <div class="report-preview" id="reportPreview"></div>
+    <div class="dialog-actions">
+      <button type="button" class="btn-soft" id="reportCancel">Batal</button>
+      <button type="button" class="btn-primary" id="reportDownload">Unduh PDF</button>
+    </div>
+  </div>
+</div>
+
 <script src="assets/js/jspdf.umd.min.js"></script>
 <script>
   const STORAGE_KEY = "denda-karyawan-v1";
@@ -905,22 +918,117 @@
     return doc;
   }
 
-  function exportMonthlyReport() {
+  let reportDoc = null;
+  let reportFilename = "";
+  let reportRenderToken = 0;
+  let pdfjsPromise = null;
+  const reportDialog = document.getElementById("reportDialog");
+  const reportPreviewEl = document.getElementById("reportPreview");
+  const reportSubEl = document.getElementById("reportSub");
+
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfjsPromise) return pdfjsPromise;
+    pdfjsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "assets/js/pdf.min.js?v=1";
+      script.onload = () => {
+        if (!window.pdfjsLib) {
+          reject(new Error("Pratinjau tidak tersedia."));
+          return;
+        }
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "assets/js/pdf.worker.min.js?v=1";
+        resolve(window.pdfjsLib);
+      };
+      script.onerror = () => reject(new Error("Pratinjau tidak tersedia."));
+      document.head.appendChild(script);
+    });
+    return pdfjsPromise;
+  }
+
+  function openReportPreview() {
     const month = document.getElementById("month").value;
     if (!month) return;
     if (!window.jspdf || !window.jspdf.jsPDF) {
       alert("Pustaka PDF belum termuat. Muat ulang halaman lalu coba lagi.");
       return;
     }
+    let doc;
     try {
-      const doc = buildMonthlyReport(month);
-      doc.save("Laporan Denda " + monthLabelFromValue(month) + ".pdf");
+      doc = buildMonthlyReport(month);
     } catch (error) {
       alert("Gagal membuat PDF: " + (error && error.message ? error.message : error));
+      return;
+    }
+    reportDoc = doc;
+    reportFilename = "Laporan Denda " + monthLabelFromValue(month) + ".pdf";
+    reportSubEl.textContent = monthLabelFromValue(month) + " · " + state.employees.length + " karyawan";
+    reportPreviewEl.replaceChildren();
+    const message = document.createElement("div");
+    message.className = "report-message";
+    message.textContent = "Menyiapkan pratinjau...";
+    reportPreviewEl.appendChild(message);
+    reportDialog.classList.remove("hidden");
+    const token = ++reportRenderToken;
+    renderReportPreview(doc, token).catch(() => {
+      if (token !== reportRenderToken) return;
+      reportPreviewEl.replaceChildren();
+      const fallback = document.createElement("div");
+      fallback.className = "report-message";
+      fallback.textContent = "Pratinjau tidak bisa dimuat di perangkat ini. Kamu tetap bisa mengunduh PDF lewat tombol di bawah.";
+      reportPreviewEl.appendChild(fallback);
+    });
+  }
+
+  async function renderReportPreview(doc, token) {
+    const pdfjs = await loadPdfJs();
+    if (token !== reportRenderToken) return;
+    const pdf = await pdfjs.getDocument({ data: doc.output("arraybuffer") }).promise;
+    if (token !== reportRenderToken) return;
+    const targetWidth = Math.max(240, reportPreviewEl.clientWidth - 16);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const canvases = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+      const page = await pdf.getPage(pageNumber);
+      if (token !== reportRenderToken) return;
+      const base = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport({ scale: (targetWidth / base.width) * dpr });
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(viewport.width));
+      canvas.height = Math.max(1, Math.round(viewport.height));
+      canvas.setAttribute("aria-label", "Halaman " + pageNumber);
+      await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      if (token !== reportRenderToken) return;
+      canvases.push(canvas);
+    }
+    reportPreviewEl.replaceChildren(...canvases);
+    reportPreviewEl.scrollTop = 0;
+  }
+
+  function closeReportPreview() {
+    reportRenderToken++;
+    reportDialog.classList.add("hidden");
+    reportPreviewEl.replaceChildren();
+    reportDoc = null;
+  }
+
+  function downloadReport() {
+    if (!reportDoc) {
+      alert("Laporan belum siap. Coba buka pratinjau lagi.");
+      return;
+    }
+    try {
+      reportDoc.save(reportFilename);
+      closeReportPreview();
+    } catch (error) {
+      alert("Gagal mengunduh PDF: " + (error && error.message ? error.message : error));
     }
   }
 
-  document.getElementById("exportReport").addEventListener("click", exportMonthlyReport);
+  document.getElementById("exportReport").addEventListener("click", openReportPreview);
+  document.getElementById("reportCancel").addEventListener("click", closeReportPreview);
+  document.getElementById("reportBackdrop").addEventListener("click", closeReportPreview);
+  document.getElementById("reportDownload").addEventListener("click", downloadReport);
 
   // ---------- Akun Google & sinkronisasi cloud ----------
   let authInstance = null;
@@ -1185,6 +1293,7 @@
     if (!renameDialog.classList.contains("hidden")) closeRenameDialog();
     if (!sortDialog.classList.contains("hidden")) closeSortDialog();
     if (!accountDialog.classList.contains("hidden")) closeAccountDialog();
+    if (!reportDialog.classList.contains("hidden")) closeReportPreview();
   });
 
   document.getElementById("addForm").addEventListener("submit", e => {

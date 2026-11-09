@@ -676,6 +676,60 @@ button.icon-action svg {
   flex: none;
 }
 
+.report-dialog {
+  max-width: 720px;
+  height: min(780px, calc(100dvh - 40px));
+  display: flex;
+  flex-direction: column;
+}
+
+.report-dialog .dialog-actions {
+  flex: none;
+}
+
+.report-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 14px;
+  padding: 8px;
+  overflow: auto;
+  border: 1px solid var(--line-soft);
+  border-radius: 16px;
+  background: var(--soft);
+  -webkit-overflow-scrolling: touch;
+}
+
+.report-preview canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 auto 10px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(40, 49, 38, 0.14);
+}
+
+.report-preview canvas:last-child {
+  margin-bottom: 0;
+}
+
+.report-message {
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+  padding: 18px;
+  color: var(--muted-strong);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .report-dialog {
+    height: calc(100dvh - 28px);
+  }
+}
+
 .dialog-label {
   display: block;
   margin: 14px 0 7px;
