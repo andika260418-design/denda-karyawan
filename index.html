@@ -177,6 +177,7 @@
   </div>
 </div>
 
+<script src="assets/js/jspdf.umd.min.js"></script>
 <script>
   const STORAGE_KEY = "denda-karyawan-v1";
   const rupiah = n => "Rp " + Number(n || 0).toLocaleString("id-ID");
@@ -652,137 +653,232 @@
   document.getElementById("sortBackdrop").addEventListener("click", closeSortDialog);
 
   // ---------- Ekspor laporan bulanan (PDF) ----------
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, ch => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[ch]));
-  }
-
   function monthLabelFromValue(month) {
     const date = new Date(month + "-01T00:00:00");
     return date.toLocaleDateString("id-ID", { month: "long", year: "numeric" });
   }
 
-  function buildReportHtml(month) {
-    const monthLabel = monthLabelFromValue(month);
+  function buildMonthlyReport(month) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const contentW = pageW - margin * 2;
     const created = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
       month: "long",
       year: "numeric"
     });
-    const fontBase = new URL("assets/fonts/", window.location.href).href;
-    const rows = [];
+    const monthLabel = monthLabelFromValue(month);
+    const color = {
+      primary: [67, 85, 61],
+      cream: [243, 241, 230],
+      ink: [40, 49, 38],
+      muted: [121, 123, 102],
+      mutedStrong: [87, 96, 77],
+      line: [221, 217, 198],
+      soft: [250, 248, 239]
+    };
+
+    const fill = c => doc.setFillColor(c[0], c[1], c[2]);
+    const draw = c => doc.setDrawColor(c[0], c[1], c[2]);
+    const ink = c => doc.setTextColor(c[0], c[1], c[2]);
+    const money = n => "Rp " + Number(n || 0).toLocaleString("id-ID");
+    const fitText = (text, maxW, size) => {
+      doc.setFontSize(size);
+      if (doc.getTextWidth(text) <= maxW) return text;
+      let out = text;
+      while (out.length > 1 && doc.getTextWidth(out + "...") > maxW) out = out.slice(0, -1);
+      return out.trimEnd() + "...";
+    };
+
     let sumFine = 0;
     let sumPaid = 0;
     let sumLeft = 0;
-
-    state.employees.forEach(emp => {
+    const rows = state.employees.map(emp => {
       const left = existingFine(month, emp.id);
       const paid = existingPaid(month, emp.id);
       const total = left + paid;
       sumFine += total;
       sumPaid += paid;
       sumLeft += left;
-      rows.push(
-        '<tr><td>' + escapeHtml(emp.name) + '</td>' +
-        '<td class="num">' + rupiah(total) + '</td>' +
-        '<td class="num">' + rupiah(paid) + '</td>' +
-        '<td class="num">' + rupiah(left) + '</td></tr>'
-      );
+      return { name: emp.name, total, paid, left };
     });
 
-    if (!rows.length) {
-      rows.push('<tr><td colspan="4" class="empty-row">Belum ada karyawan pada laporan ini.</td></tr>');
+    let y = margin;
+    fill(color.primary);
+    doc.circle(margin + 1.4, y + 1.1, 1.3, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    ink(color.primary);
+    doc.text("DENDA KARYAWAN", margin + 4.8, y + 2.4, { charSpace: 0.5 });
+    doc.setFontSize(20);
+    ink(color.ink);
+    doc.text("Laporan Bulanan", margin, y + 10.8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    ink(color.muted);
+    doc.text(monthLabel + " · " + state.employees.length + " karyawan", margin, y + 16.5);
+    doc.setFontSize(7.5);
+    doc.text("Dibuat", pageW - margin, y + 2.6, { align: "right" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    ink(color.ink);
+    doc.text(created, pageW - margin, y + 7.8, { align: "right" });
+
+    draw(color.line);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y + 20, pageW - margin, y + 20);
+    y += 27;
+
+    const tileH = 20;
+    const gap = 4;
+    const tileW1 = 54;
+    const tileW2 = 54;
+    const tileW3 = contentW - tileW1 - tileW2 - gap * 2;
+
+    const drawTile = (x, w, label, value, isPrimary) => {
+      if (isPrimary) {
+        fill(color.primary);
+        doc.roundedRect(x, y, w, tileH, 2.2, 2.2, "F");
+      } else {
+        fill(color.soft);
+        draw(color.line);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(x, y, w, tileH, 2.2, 2.2, "FD");
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.3);
+      ink(isPrimary ? color.cream : color.mutedStrong);
+      doc.text(label.toUpperCase(), x + 4, y + 6, { charSpace: 0.3 });
+      doc.setFontSize(isPrimary ? 14 : 12.5);
+      ink(isPrimary ? color.cream : color.ink);
+      doc.text(value, x + 4, y + 15);
+    };
+
+    drawTile(margin, tileW1, "Jumlah Denda", money(sumFine), false);
+    drawTile(margin + tileW1 + gap, tileW2, "Telah Dibayar", money(sumPaid), false);
+    drawTile(margin + tileW1 + tileW2 + gap * 2, tileW3, "Sisa Denda", money(sumLeft), true);
+    y += tileH + 9;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    ink(color.ink);
+    doc.text("Rincian denda", margin, y + 4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    ink(color.muted);
+    doc.text("Satuan Rupiah", pageW - margin, y + 4, { align: "right" });
+    y += 7.5;
+
+    const nameW = 76;
+    const fineW = 36;
+    const paidW = 34;
+    const xFine = margin + nameW + fineW - 3;
+    const xPaid = margin + nameW + fineW + paidW - 3;
+    const xLeft = pageW - margin - 3;
+    const rowH = 8.4;
+
+    const drawTableHeader = atY => {
+      fill(color.primary);
+      doc.rect(margin, atY, contentW, 8, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.8);
+      ink(color.cream);
+      doc.text("NAMA KARYAWAN", margin + 3, atY + 5.1, { charSpace: 0.25 });
+      doc.text("JUMLAH DENDA", xFine, atY + 5.1, { align: "right", charSpace: 0.1 });
+      doc.text("TELAH DIBAYAR", xPaid, atY + 5.1, { align: "right", charSpace: 0.1 });
+      doc.text("SISA DENDA", xLeft, atY + 5.1, { align: "right", charSpace: 0.1 });
+      return 8;
+    };
+
+    let tableY = y + drawTableHeader(y);
+
+    const nextPage = () => {
+      doc.addPage();
+      tableY = margin;
+      tableY += drawTableHeader(tableY);
+    };
+
+    const drawRow = (row, index) => {
+      if (tableY + rowH > pageH - 24) nextPage();
+      if (index % 2 === 1) {
+        fill(color.soft);
+        doc.rect(margin, tableY, contentW, rowH, "F");
+      }
+      draw(color.line);
+      doc.setLineWidth(0.2);
+      doc.line(margin, tableY + rowH, pageW - margin, tableY + rowH);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.8);
+      ink(color.ink);
+      doc.text(fitText(row.name, nameW - 6, 8.8), margin + 3, tableY + 5.4);
+      doc.text(money(row.total), xFine, tableY + 5.4, { align: "right" });
+      doc.text(money(row.paid), xPaid, tableY + 5.4, { align: "right" });
+      doc.text(money(row.left), xLeft, tableY + 5.4, { align: "right" });
+      tableY += rowH;
+    };
+
+    if (rows.length) {
+      rows.forEach(drawRow);
+    } else {
+      if (tableY + rowH > pageH - 24) nextPage();
+      draw(color.line);
+      doc.setLineWidth(0.2);
+      doc.line(margin, tableY + rowH, pageW - margin, tableY + rowH);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.8);
+      ink(color.muted);
+      doc.text("Belum ada karyawan pada laporan ini.", margin + 3, tableY + 5.4);
+      tableY += rowH;
     }
 
-    return '<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">' +
-      '<title>Laporan Denda ' + monthLabel + '</title>' +
-      '<style>' +
-      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-400.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}' +
-      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-600.woff2") format("woff2");font-weight:600;font-style:normal;font-display:swap}' +
-      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-700.woff2") format("woff2");font-weight:700;font-style:normal;font-display:swap}' +
-      '@font-face{font-family:"Plus Jakarta Sans";src:url("' + fontBase + 'plus-jakarta-sans-800.woff2") format("woff2");font-weight:800;font-style:normal;font-display:swap}' +
-      '*{box-sizing:border-box}' +
-      'body{margin:0;padding:30px 34px;background:#fff;color:#283126;font-family:"Plus Jakarta Sans","Segoe UI",system-ui,-apple-system,sans-serif;font-size:12.5px;line-height:1.45;-webkit-font-smoothing:antialiased}' +
-      '.top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding-bottom:16px;border-bottom:1px solid #ddd9c6}' +
-      '.brand{display:inline-flex;align-items:center;gap:8px;color:#43553d;font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}' +
-      '.brand-dot{width:9px;height:9px;border-radius:50%;background:#43553d;display:inline-block}' +
-      'h1{margin:8px 0 3px;font-size:26px;font-weight:800;letter-spacing:-.9px;line-height:1.15}' +
-      '.meta{color:#797b66;font-size:12px;font-weight:500}' +
-      '.date-box{text-align:right;color:#797b66;font-size:11px}' +
-      '.date-box b{display:block;margin-top:2px;color:#283126;font-size:12.5px;font-weight:700}' +
-      '.summary{display:grid;grid-template-columns:1fr 1fr 1.15fr;gap:10px;margin:18px 0 22px}' +
-      '.tile{padding:13px 15px;border:1px solid #e0ddc9;border-radius:12px;background:#f3f1e6}' +
-      '.tile span{display:block;margin-bottom:4px;color:#57604d;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}' +
-      '.tile b{font-size:17px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums}' +
-      '.tile.primary{border-color:transparent;background:linear-gradient(135deg,#52654a 0%,#43553d 55%,#36462f 100%);color:#f3f1e6}' +
-      '.tile.primary span{color:rgba(243,241,230,.8)}' +
-      '.tile.primary b{font-size:19px}' +
-      '.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}' +
-      '.section-head h2{margin:0;font-size:13px;font-weight:800;letter-spacing:-.1px}' +
-      '.section-head span{color:#797b66;font-size:11px}' +
-      'table{width:100%;border-collapse:separate;border-spacing:0}' +
-      'thead th{padding:9px 10px;background:#43553d;color:#f3f1e6;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}' +
-      'thead th:first-child{border-radius:8px 0 0 8px}' +
-      'thead th:last-child{border-radius:0 8px 8px 0}' +
-      'th.num,td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}' +
-      'tbody td{padding:9px 10px;border-bottom:1px solid #eae7d7}' +
-      'tbody tr:nth-child(even) td{background:#faf8ef}' +
-      'tbody tr:last-child td{border-bottom:0}' +
-      '.empty-row{padding:22px 10px;color:#797b66;text-align:center}' +
-      'tfoot td{padding:11px 10px;border-top:1.5px solid #43553d;font-weight:800}' +
-      'tfoot td.num{color:#43553d}' +
-      '.footer{display:flex;justify-content:space-between;gap:20px;margin-top:22px;padding-top:10px;border-top:1px solid #eae7d7;color:#a3a48e;font-size:9.5px}' +
-      '.pdf-toolbar{position:fixed;right:18px;bottom:18px}' +
-      '.pdf-toolbar button{border:0;border-radius:999px;padding:12px 20px;background:#43553d;color:#f3f1e6;font:700 13px "Plus Jakarta Sans","Segoe UI",sans-serif;cursor:pointer;box-shadow:0 12px 26px -10px rgba(38,49,34,.6)}' +
-      '@page{size:A4 portrait;margin:12mm}' +
-      '@media print{body{padding:0}.pdf-toolbar{display:none}}' +
-      '</style></head><body>' +
-      '<header class="top"><div>' +
-      '<div class="brand"><span class="brand-dot"></span>Denda Karyawan</div>' +
-      '<h1>Laporan Bulanan</h1>' +
-      '<div class="meta">' + monthLabel + ' · ' + state.employees.length + ' karyawan</div>' +
-      '</div><div class="date-box">Dibuat<b>' + created + '</b></div></header>' +
-      '<section class="summary">' +
-      '<div class="tile"><span>Jumlah Denda</span><b>' + rupiah(sumFine) + '</b></div>' +
-      '<div class="tile"><span>Telah Dibayar</span><b>' + rupiah(sumPaid) + '</b></div>' +
-      '<div class="tile primary"><span>Sisa Denda</span><b>' + rupiah(sumLeft) + '</b></div>' +
-      '</section>' +
-      '<div class="section-head"><h2>Rincian denda</h2><span>Satuan Rupiah</span></div>' +
-      '<table><thead><tr><th>Nama Karyawan</th><th class="num">Jumlah Denda</th><th class="num">Telah Dibayar</th><th class="num">Sisa Denda</th></tr></thead>' +
-      '<tbody>' + rows.join("") + '</tbody>' +
-      '<tfoot><tr><td>Total</td><td class="num">' + rupiah(sumFine) + '</td><td class="num">' + rupiah(sumPaid) + '</td><td class="num">' + rupiah(sumLeft) + '</td></tr></tfoot>' +
-      '</table>' +
-      '<footer class="footer"><span>Aplikasi Denda Karyawan</span><span>' + monthLabel + '</span></footer>' +
-      '<div class="pdf-toolbar"><button type="button" onclick="window.print()">Simpan PDF</button></div>' +
-      '</body></html>';
+    if (tableY + 12 > pageH - 24) nextPage();
+    draw(color.primary);
+    doc.setLineWidth(0.6);
+    doc.line(margin, tableY, pageW - margin, tableY);
+    tableY += 5.6;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9.5);
+    ink(color.ink);
+    doc.text("Total", margin + 3, tableY);
+    ink(color.primary);
+    doc.text(money(sumFine), xFine, tableY, { align: "right" });
+    doc.text(money(sumPaid), xPaid, tableY, { align: "right" });
+    doc.text(money(sumLeft), xLeft, tableY, { align: "right" });
+
+    const pageCount = doc.getNumberOfPages();
+    for (let p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      const footY = pageH - 14;
+      draw(color.line);
+      doc.setLineWidth(0.2);
+      doc.line(margin, footY - 4, pageW - margin, footY - 4);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      ink(color.muted);
+      doc.text("Aplikasi Denda Karyawan", margin, footY);
+      doc.text(monthLabel, pageW - margin, footY, { align: "right" });
+      if (pageCount > 1) {
+        doc.text("Halaman " + p + " dari " + pageCount, pageW / 2, footY, { align: "center" });
+      }
+    }
+    return doc;
   }
 
   function exportMonthlyReport() {
     const month = document.getElementById("month").value;
     if (!month) return;
-    const reportWindow = window.open("", "_blank");
-    if (!reportWindow) {
-      alert("Izinkan pop-up di browser untuk membuat laporan PDF.");
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      alert("Pustaka PDF belum termuat. Muat ulang halaman lalu coba lagi.");
       return;
     }
-    reportWindow.document.open();
-    reportWindow.document.write(buildReportHtml(month));
-    reportWindow.document.close();
-
-    const printReport = () => {
-      reportWindow.focus();
-      reportWindow.print();
-    };
-    const fonts = reportWindow.document.fonts;
-    if (fonts && fonts.ready) {
-      fonts.ready.then(() => setTimeout(printReport, 150)).catch(() => setTimeout(printReport, 300));
-    } else {
-      setTimeout(printReport, 500);
+    try {
+      const doc = buildMonthlyReport(month);
+      doc.save("Laporan Denda " + monthLabelFromValue(month) + ".pdf");
+    } catch (error) {
+      alert("Gagal membuat PDF: " + (error && error.message ? error.message : error));
     }
   }
 
