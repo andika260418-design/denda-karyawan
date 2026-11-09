@@ -144,6 +144,20 @@
   </div>
 </div>
 
+<div class="dialog-wrap hidden" id="renameDialog">
+  <div class="dialog-backdrop" id="renameBackdrop"></div>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="renameDialogTitle">
+    <h3 id="renameDialogTitle">Ubah nama karyawan</h3>
+    <p class="dialog-sub" id="renameCurrent"></p>
+    <label class="dialog-label" for="renameName">Nama karyawan</label>
+    <input type="text" id="renameName" maxlength="80" placeholder="Nama karyawan">
+    <div class="dialog-actions">
+      <button type="button" class="btn-soft" id="renameCancel">Batal</button>
+      <button type="button" class="btn-primary" id="renameSave">Simpan</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const STORAGE_KEY = "denda-karyawan-v1";
   const rupiah = n => "Rp " + Number(n || 0).toLocaleString("id-ID");
@@ -219,6 +233,17 @@
     return btn;
   }
 
+  function createRenameButton(emp) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "icon-action";
+    btn.title = "Ubah nama";
+    btn.setAttribute("aria-label", `Ubah nama ${emp.name}`);
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15.2 5.2 3.6 3.6M4.5 19.5l.9-4.2L16.3 4.4a1.8 1.8 0 0 1 2.5 0l.8.8a1.8 1.8 0 0 1 0 2.5L8.7 18.6l-4.2.9Z"/></svg>';
+    btn.addEventListener("click", () => openRenameDialog(emp));
+    return btn;
+  }
+
   // ---------- Beranda ----------
   function renderHome() {
     const tbody = document.getElementById("rows");
@@ -290,7 +315,7 @@
       const actions = document.createElement("div");
       actions.className = "row-actions";
 
-      const fineBtn = createFineButton(emp);
+      const renameBtn = createRenameButton(emp);
       const payBtn = createPaymentButton(emp);
       const detailBtn = createDetailButton(emp);
 
@@ -300,7 +325,7 @@
       btn.textContent = "Hapus";
       btn.addEventListener("click", () => removeEmployee(emp.id));
 
-      actions.append(fineBtn, payBtn, detailBtn, btn);
+      actions.append(renameBtn, payBtn, detailBtn, btn);
       tdActions.appendChild(actions);
 
       tr.append(tdNo, tdName, tdActions);
@@ -476,6 +501,49 @@
   document.getElementById("detailBackdrop").addEventListener("click", closeDetailDialog);
   detailMonth.addEventListener("change", refreshDetail);
 
+  // ---------- Dialog ubah nama karyawan ----------
+  let renameTarget = null;
+  const renameDialog = document.getElementById("renameDialog");
+  const renameName = document.getElementById("renameName");
+
+  function openRenameDialog(emp) {
+    renameTarget = emp;
+    document.getElementById("renameCurrent").textContent = `Nama saat ini: ${emp.name}`;
+    renameName.value = emp.name;
+    renameDialog.classList.remove("hidden");
+    renameName.focus();
+    renameName.select();
+  }
+
+  function closeRenameDialog() {
+    renameDialog.classList.add("hidden");
+    renameTarget = null;
+  }
+
+  document.getElementById("renameCancel").addEventListener("click", closeRenameDialog);
+  document.getElementById("renameBackdrop").addEventListener("click", closeRenameDialog);
+
+  document.getElementById("renameSave").addEventListener("click", () => {
+    if (!renameTarget) return;
+    const name = renameName.value.trim();
+    if (!name) {
+      renameName.focus();
+      return;
+    }
+    renameTarget.name = name;
+    save();
+    closeRenameDialog();
+    renderManage();
+    if (!document.getElementById("page-home").classList.contains("hidden")) renderHome();
+  });
+
+  renameName.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.getElementById("renameSave").click();
+    }
+  });
+
   // ---------- Ekspor laporan bulanan (PDF) ----------
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, ch => ({
@@ -618,6 +686,7 @@
     if (!fineDialog.classList.contains("hidden")) closeFineDialog();
     if (!paymentDialog.classList.contains("hidden")) closePaymentDialog();
     if (!detailDialog.classList.contains("hidden")) closeDetailDialog();
+    if (!renameDialog.classList.contains("hidden")) closeRenameDialog();
   });
 
   document.getElementById("addForm").addEventListener("submit", e => {

@@ -586,7 +586,8 @@ button.icon-action svg {
 #fineAmount,
 #paymentMonth,
 #paymentAmount,
-#detailMonth {
+#detailMonth,
+#renameName {
   width: 100%;
   height: 48px;
   padding: 0 14px;
@@ -619,7 +620,8 @@ button.icon-action svg {
 #fineAmount:focus,
 #paymentMonth:focus,
 #paymentAmount:focus,
-#detailMonth:focus {
+#detailMonth:focus,
+#renameName:focus {
   border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent);
 }
